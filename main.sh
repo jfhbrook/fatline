@@ -7,6 +7,7 @@ function create-new {
 
 function run-workflow {
   init-state
+  download-missing-packages
   init-homebrew-state
 
   log-plan

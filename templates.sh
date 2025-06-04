@@ -21,6 +21,7 @@ function download-package {
 
   name="${1:-}"
 
+  log-info "Downloading package ${name}..."
   template-package "${name}" "${name}"
 }
 
@@ -30,4 +31,12 @@ function new-package {
   name="${1:-}"
 
   template-package _new "${name}"
+}
+
+function download-missing-packages {
+  for package in "${TO_INSTALL[@]}"; do
+    if [ ! -d "./packages/${package}" ]; then
+      download-package "${package}"
+    fi
+  done
 }
