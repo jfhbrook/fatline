@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
-function main {
-  log-info 'Yes this is fatline'
-  log-debug 'It worked if it ends with ok'
+function create-new {
+  log-info "Creating new package ${PACKAGE}..."
+  new-package "${PACKAGE}"
+}
 
-  init-state "$@"
-  log-plan
-
+function run-workflow {
+  init-state
   init-homebrew-state
+
+  log-plan
   log-homebrew-plan
 
   remove-homebrew
@@ -22,6 +24,22 @@ function main {
   run-lifecycle install
 
   save-state
+}
+
+function main {
+  log-info 'Yes this is fatline'
+  log-debug 'It worked if it ends with ok'
+
+  parse-argv "$@"
+
+  case "${COMMAND}" in
+    new)
+      create-new
+      ;;
+    *)
+      run-workflow
+      ;;
+  esac
 
   log-info 'ok'
 }

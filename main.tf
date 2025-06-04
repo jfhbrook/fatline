@@ -1,9 +1,9 @@
 locals {
   fatline_bin = "${path.module}/fatline.sh.tftpl"
-  # prelude = "${path.module}/prelude.sh.tftpl"
   includes = {
     LOGGING   = "logging.sh",
     TEMPLATES = "templates.sh",
+    ARGV      = "argv.sh",
     STATE     = "state.sh"
     LIFECYCLE = "lifecycle.sh",
     SYSTEM    = "system.sh",
@@ -26,14 +26,6 @@ locals {
     for name, mod in module.includes : name => mod.include
   }
 }
-
-/*
-resource "local_file" "prelude" {
-  content         = templatefile(local.prelude, local.template_vars)
-  filename        = "${path.module}/prelude.sh"
-  file_permission = "0644"
-}
-*/
 
 resource "local_file" "fatline_bin" {
   content              = templatefile(local.fatline_bin, local.template_vars)

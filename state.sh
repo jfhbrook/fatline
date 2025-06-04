@@ -178,32 +178,6 @@ function load-to-remove-env {
   fi
 }
 
-function parse-argv {
-  #
-  # Parse CLI arguments
-  #
-
-  while [[ $# -gt 0 ]]; do
-    case "${1}" in
-      --force)
-        # shellcheck disable=SC2034
-        FORCE=1
-        shift
-        ;;
-      *)
-        if [ -z "${COMMAND}" ]; then
-          COMMAND="${1}"
-        elif [ -z "${PACKAGE}" ]; then
-          PACKAGE="${1}"
-        else
-          die "Unknown argument ${1}"
-        fi
-        shift
-        ;;
-    esac
-  done
-}
-
 function test-lifecycle {
   #
   # Check if a command lifecycle should be run
@@ -219,8 +193,6 @@ function test-lifecycle {
 }
 
 function init-state {
-  parse-argv "$@"
-
   ensure-manifest
   ensure-installed-txt
 
