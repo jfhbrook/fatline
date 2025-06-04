@@ -1,0 +1,11 @@
+set dotenv-load := true
+set dotenv-filename := "package.env"
+
+install:
+  echo 'No install step required.'
+
+update:
+  echo 'No update step required.'
+
+remove:
+  echo 'No remove step required.'
