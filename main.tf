@@ -3,7 +3,7 @@ locals {
   # prelude = "${path.module}/prelude.sh.tftpl"
   includes = {
     LOGGING   = "logging.sh",
-    INIT      = "init.sh",
+    TEMPLATES = "templates.sh",
     STATE     = "state.sh"
     LIFECYCLE = "lifecycle.sh",
     SYSTEM    = "system.sh",
