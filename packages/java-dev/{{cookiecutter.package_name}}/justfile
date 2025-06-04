@@ -1,0 +1,6 @@
+install:
+  curl -s "https://get.sdkman.io" | bash
+  bash -c 'source ~/.sdkman/bin/sdkman-init.sh && sdk install java'
+
+update:
+  bash -c 'source ~/.sdkman/bin/sdkman-init.sh && sdk upgrade'

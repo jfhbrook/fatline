@@ -1,0 +1,4 @@
+formulas:
+  - 'tflint'
+  - 'trivy'
+  - 'warrensbox/tap/tfswitch'

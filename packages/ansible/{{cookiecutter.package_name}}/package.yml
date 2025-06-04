@@ -1,0 +1,4 @@
+formulas:
+  - 'ansible'
+  - 'ansible-lint'
+  - 'sshpass'

@@ -1,0 +1,9 @@
+formulas:
+  - jfhbrook/joshiverse/copr
+  - jfhbrook/joshiverse/copr-rpmbuild
+  - jfhbrook/joshiverse/coprctl
+  - jfhbrook/joshiverse/go2rpm
+  - jfhbrook/joshiverse/pyp2spec
+  - jfhbrook/joshiverse/rust2rpm
+  - jfhbrook/joshiverse/tito
+casks: []

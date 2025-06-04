@@ -1,0 +1,4 @@
+
+casks:
+  - 'dotnet-sdk'
+  - 'isen-ng/dotnet-sdk-versions/dotnet-sdk6-0-400'

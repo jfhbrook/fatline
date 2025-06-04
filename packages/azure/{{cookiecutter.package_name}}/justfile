@@ -1,0 +1,5 @@
+install:
+  pwsh -c "Install-PSResource Az" 
+
+update:
+  echo "run 'Install-PSResource Az -Reinstall' to update"

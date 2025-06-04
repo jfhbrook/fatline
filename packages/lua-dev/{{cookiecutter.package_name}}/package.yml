@@ -1,0 +1,5 @@
+formulas:
+  - 'lua'
+  - 'luarocks'
+  - 'stylua'
+  - 'luaver'

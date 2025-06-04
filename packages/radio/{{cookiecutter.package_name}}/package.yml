@@ -1,0 +1,4 @@
+formulas:
+  - 'gnuradio'
+casks:
+  - 'gqrx'

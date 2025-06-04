@@ -1,0 +1,7 @@
+install:
+  ./scripts/install.sh
+
+update: install
+
+remove:
+  rm -f ~/.local/bin/eksctl

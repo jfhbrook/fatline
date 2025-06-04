@@ -1,0 +1,5 @@
+install:
+  gh copilot --help || gh extension install github/gh-copilot
+
+update:
+  gh extension upgrade gh-copilot

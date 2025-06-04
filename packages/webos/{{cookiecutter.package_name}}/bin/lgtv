@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+exec uv run --directory ~/.local/share/lgtv -- lgtv --ssl "$@"

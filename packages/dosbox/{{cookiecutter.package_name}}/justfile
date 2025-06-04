@@ -1,0 +1,2 @@
+install:
+  ln -s /Applications/dosbox.app/Contents/MacOS/DOSBox ~/.local/bin/dosbox

@@ -1,0 +1,8 @@
+install:
+  if [ ! -d "${HOME}/.onyx" ]; then ./scripts/install.sh; fi
+
+update:
+  onyx self-upgrade
+
+remove:
+  echo "NOTE: onyx must be removed manually."

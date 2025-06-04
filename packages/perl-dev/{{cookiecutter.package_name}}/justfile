@@ -1,0 +1,26 @@
+set dotenv-load := true
+set dotenv-filename := "package.env"
+
+install-perlbrew:
+  if [ ! -f ~/perl5/perlbrew/etc/bashrc ]; then curl -L https://install.perlbrew.pl | bash; fi
+
+install-perlbrew-perl:
+  . ./scripts/activate.sh && ./scripts/install-perlbrew-perl.sh
+
+install-perl-packages:
+  . ./scripts/activate.sh && cat requirements.txt | cpanm
+  . ./scripts/activate.sh && cat requirements-force.txt | cpanm --force
+
+update-perl-packages:
+  . ./scripts/activate.sh && cat requirements.txt | cpanm
+  echo 'NOTE: run `fatline install perl-dev --force` to reinstall perl modules'
+
+install:
+  just install-perlbrew
+  just install-perlbrew-perl
+  just install-perl-packages
+
+update:
+  just install-perlbrew
+  just install-perlbrew-perl
+  just update-perl-packages

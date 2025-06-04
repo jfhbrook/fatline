@@ -1,0 +1,4 @@
+formulas:
+  - 'jandedobbeleer/oh-my-posh/oh-my-posh'
+casks:
+  - 'powershell'

@@ -1,0 +1,8 @@
+set dotenv-load := true
+set dotenv-filename := "package.env"
+
+install:
+  ./scripts/install.sh
+
+remove:
+  rm ~/.local/bin/${SLOWPOKE_BIN}

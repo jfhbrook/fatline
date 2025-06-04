@@ -1,0 +1,5 @@
+set dotenv-load := true
+set dotenv-filename := "package.env"
+
+install:
+  if [ ! -d ~/.local/share/yadm/repo.git ]; then yadm clone "${YADM_REPO}"; fi

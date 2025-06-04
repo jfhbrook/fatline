@@ -1,0 +1,4 @@
+install:
+  go install github.com/soulteary/nginx-formatter@latest
+
+update: install

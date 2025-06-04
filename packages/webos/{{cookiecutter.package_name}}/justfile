@@ -1,0 +1,7 @@
+install:
+  mkdir -p ~/.local/share/lgtv
+  cd ~/.local/share/lgtv && uv venv && uv pip install git+https://github.com/klattimer/LGWebOSRemote
+  cp ./bin/lgtv ~/.local/bin/lgtv
+  chmod +x ~/.local/bin/lgtv
+
+update: install

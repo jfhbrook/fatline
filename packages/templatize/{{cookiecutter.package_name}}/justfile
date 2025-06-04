@@ -1,0 +1,2 @@
+install:
+  bash <(curl -sSfL https://raw.githubusercontent.com/jfhbrook/templates/main/install.sh)
