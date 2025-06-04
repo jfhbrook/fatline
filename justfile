@@ -1,4 +1,4 @@
-VERSION := "1.0.0"
+VERSION := "1.0.1"
 
 build:
   make
@@ -20,4 +20,4 @@ gh-release:
   bash ./scripts/release.sh '{{VERSION}}'
 
 # Publish the release on GitHub
-publish: tag push gh-release
+publish: build tag push gh-release
