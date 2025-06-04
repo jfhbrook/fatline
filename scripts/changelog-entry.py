@@ -16,7 +16,7 @@ with open("CHANGELOG.md", "r") as f:
         while True:
             line = next(it)
             m = re.findall(TITLE_RE, line)
-            if not found and m and m[0][0] == VERSION:
+            if not found and m and m[0] == VERSION:
                 found = True
                 # Consume ---- line
                 next(it)
