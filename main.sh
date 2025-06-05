@@ -13,8 +13,8 @@ function run-workflow {
   log-plan
   log-homebrew-plan
 
-  remove-homebrew
   run-lifecycle remove
+  remove-homebrew
 
   update-macos
   update-macos-software
