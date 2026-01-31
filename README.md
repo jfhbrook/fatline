@@ -1,6 +1,6 @@
 # fatline
 
-This is a little tool I wrote for managing software on my MacOS machines.
+This is a little tool I wrote for managing software on my MacOS and Fedora machines.
 
 Documentation TK.
 

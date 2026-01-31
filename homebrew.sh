@@ -52,7 +52,7 @@ function init-homebrew-package-state {
       ;;
   esac
 
-  yml_path="./packages/${package}/package.yml"
+  yml_path="./${FATLINE_PACKAGE_DIR:?}/${package}/package.yml"
   src=''
   formulas="$(yq -r '.formulas[]' "${yml_path}")"
   casks="$(yq -r '.casks[]' "${yml_path}")"

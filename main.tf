@@ -1,7 +1,8 @@
 locals {
-  fatline_bin = "${path.module}/fatline.sh.tftpl"
+  fatline_macos_bin = "${path.module}/fatline-macos.sh.tftpl"
   includes = {
     LOGGING   = "logging.sh",
+    CONFIG    = "config/macos.sh",
     TEMPLATES = "templates.sh",
     ARGV      = "argv.sh",
     STATE     = "state.sh"
@@ -27,9 +28,9 @@ locals {
   }
 }
 
-resource "local_file" "fatline_bin" {
-  content              = templatefile(local.fatline_bin, local.template_vars)
-  filename             = "${path.module}/bin/fatline"
+resource "local_file" "fatline_macos" {
+  content              = templatefile(local.fatline_macos_bin, local.template_vars)
+  filename             = "${path.module}/bin/fatline-macos"
   directory_permission = "0755"
   file_permission      = "0755"
 }

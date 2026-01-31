@@ -11,7 +11,7 @@ function package-lifecycle {
 
   recipe="${1}"
   package="${2}"
-  justfile_path="./packages/${package}/justfile"
+  justfile_path="./${FATLINE_PACKAGE_DIR:?}/${package}/justfile"
 
   if [ ! -f "${justfile_path}" ]; then
     return
