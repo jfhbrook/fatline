@@ -55,3 +55,7 @@ function log-homebrew-plan {
     log-debug 'No casks to remove'
   fi
 }
+
+function log-dnf-plan {
+  log-warn 'TODO: log dnf plan'
+}

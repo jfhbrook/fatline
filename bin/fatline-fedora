@@ -59,12 +59,12 @@ function die {
 
 
 #
-# include: ./config/macos.sh
+# include: ./config/fedora.sh
 #
 
 
 
-FATLINE_PACKAGE_DIR=packages/macos
+FATLINE_PACKAGE_DIR=packages/fedora
 
 
 #
@@ -495,50 +495,26 @@ function run-lifecycle {
 
 
 #
-# include: ./system/macos.sh
+# include: ./system/fedora.sh
 #
 
 
 
-function update-macos {
+function update-fedora {
   #
-  # Run MacOS OS updates
+  # Run non-dnf Fedora updates
   #
-
-  if ! test-lifecycle 'update'; then
-    return
-  fi
-
-  set -x
-  sudo softwareupdate -i -a
-  set +x
-}
-
-function update-macos-software {
-  #
-  # Run MacOS software updates
-  #
-
-  if ! test-lifecycle 'update'; then
-    return
-  fi
-
-  set -x
-  mas upgrade
-  set +x
 }
 
 
 #
-# include: ./homebrew.sh
+# include: ./dnf.sh
 #
 
 
 
-HOMEBREW_FORMULAS_TO_INSTALL=()
-HOMEBREW_CASKS_TO_INSTALL=()
-HOMEBREW_FORMULAS_TO_REMOVE=()
-HOMEBREW_CASKS_TO_REMOVE=()
+DNF_PACKAGES_TO_INSTALL=()
+DNF_PACKAGES_TO_REMOVE=()
 
 function init-homebrew-state {
   #
@@ -546,196 +522,121 @@ function init-homebrew-state {
   #
 
   for package in "${TO_INSTALL[@]}"; do
-    init-homebrew-package-state install "${package}"
+    init-dnf-package-state install "${package}"
   done
 
   for package in "${TO_REMOVE[@]}"; do
-    init-homebrew-package-state remove "${package}"
+    init-dnf-package-state remove "${package}"
   done
 
-  cleanup-homebrew-env
+  cleanup-dnf-env
 }
 
-function init-homebrew-package-state {
+function init-dnf-package-state {
   #
-  # Init homebrew state for a command and package
+  # Init dnf state for a command and package
   #
 
   local cmd
   local package
-  local formulas_var
-  local casks_var
+  local packages_var
   local yml_path
   local src
-  local formulas
-  local casks
+  local packages
 
   cmd="${1}"
   package="${2}"
 
   case "${cmd}" in
     install)
-      formulas_var='HOMEBREW_FORMULAS_TO_INSTALL'
-      casks_var='HOMEBREW_CASKS_TO_INSTALL'
+      packages_var='DNF_PACKAGES_TO_INSTALL'
       ;;
     remove)
-      formulas_var='HOMEBREW_FORMULAS_TO_REMOVE'
-      casks_var='HOMEBREW_CASKS_TO_REMOVE'
+      packages_var='DNF_PACKAGES_TO_REMOVE'
       ;;
     *)
-      die "Command ${cmd} unsupported by homebrew"
+      die "Command ${cmd} unsupported by dnf"
       ;;
   esac
 
   yml_path="./${FATLINE_PACKAGE_DIR:?}/${package}/package.yml"
   src=''
-  formulas="$(yq -r '.formulas[]' "${yml_path}")"
-  casks="$(yq -r '.casks[]' "${yml_path}")"
+  packages="$(yq -r '.packages[]' "${yml_path}")"
 
-  if [ -n "${formulas}" ]; then
-    src="${formulas_var}+=(
-${formulas}
+  if [ -n "${packages}" ]; then
+    src="${packages_var}+=(
+${packages}
 )
 "
-  fi
-
-  if [ -n "${casks}" ]; then
-    src="${src}${casks_var}+=(
-${casks}
-)"
   fi
 
   eval "${src}"
 }
 
-function cleanup-homebrew-env {
+function cleanup-dnf-env {
   #
-  # Sort and deduplicate homebrew formulas and casks
+  # Sort and deduplicate dnf packages
   #
 
   # TODO: These leave an empty element in each array - yuck
 
-  mapfile -t HOMEBREW_FORMULAS_TO_INSTALL < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_INSTALL[@]-}" | sort -u)
-  mapfile -t HOMEBREW_CASKS_TO_INSTALL < <(printf '%s\n' "${HOMEBREW_CASKS_TO_INSTALL[@]-}" | sort -u)
-  mapfile -t HOMEBREW_FORMULAS_TO_REMOVE < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_REMOVE[@]-}" | sort -u)
-  mapfile -t HOMEBREW_CASKS_TO_REMOVE < <(printf '%s\n' "${HOMEBREW_CASKS_TO_REMOVE[@]-}" | sort -u)
+  mapfile -t DNF_PACKAGES_TO_INSTALL < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_INSTALL[@]-}" | sort -u)
+  mapfile -t DNF_PACKAGES_TO_REMOVE < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_REMOVE[@]-}" | sort -u)
 }
 
-function foreach-homebrew-cask {
+function install-dnf-package {
   #
-  # Run a function for each homebrew cask
-  #
-
-  local callback
-  callback="${1}"
-
-  if [ -n "${HOMEBREW_CASKS:-}" ]; then
-    for cask in "${HOMEBREW_CASKS[@]}"; do
-      "${callback}" "${cask}"
-    done
-  fi
-}
-
-function install-homebrew-formula {
-  #
-  # Install a homebrew formula
+  # Install a dnf package
   #
 
-  local formula
+  local package
 
-  formula="${1}"
+  package="${1}"
 
   if [ -z "${FORCE}" ]; then
     set -x
-    brew install "${formula}"
+    sudo dnf install -y "${package}"
     set +x
   else
     set -x
-    brew list "${formula}" &>/dev/null || brew install "${formula}"
+    dnf list installed "${package}" &>/dev/null || sudo dnf install -y "${package}"
     set +x
   fi
 }
 
-function install-homebrew-cask {
+function remove-dnf-package {
   #
-  # Install a homebrew cask
+  # Remove a dnf package
   #
 
-  local cask
+  local package
 
-  cask="${1}"
+  package="${1}"
 
   if [ -z "${FORCE}" ]; then
     set -x
-    brew install --cask "${cask}"
+    sudo dnf remove "${package}"
     set +x
   else
     set -x
-    brew list --cask "${cask}" &>/dev/null || brew install --cask "${cask}"
+    dnf list packages "${package}" &>/dev/null && sudo dnf remove "${package}"
     set +x
   fi
 }
 
-function remove-homebrew-formula {
+function install-dnf {
   #
-  # Remove a homebrew formula
-  #
-
-  local formula
-
-  formula="${1}"
-
-  if [ -z "${FORCE}" ]; then
-    set -x
-    brew remove "${formula}"
-    set +x
-  else
-    set -x
-    brew list "${formula}" &>/dev/null && brew remove "${formula}"
-    set +x
-  fi
-}
-
-function remove-homebrew-cask {
-  #
-  # Remove a homebrew cask
+  # Install dnf packages
   #
 
-  local cask
-
-  cask="${1}"
-
-  if [ -z "${FORCE}" ]; then
-    set -x
-    brew remove --cask "${cask}"
-    set +x
-  else
-    set -x
-    brew list --cask "${cask}" &>/dev/null && brew remove --cask "${cask}"
-    set +x
-  fi
-}
-
-
-function install-homebrew {
-  #
-  # Install homebrew packages
-  #
-
-  for formula in "${HOMEBREW_FORMULAS_TO_INSTALL[@]}"; do
-    if [ -n "${formula}" ]; then
-      install-homebrew-formula "${formula}"
-    fi
-  done
-
-  for cask in "${HOMEBREW_CASKS_TO_INSTALL[@]}"; do
-    if [ -n "${cask}" ]; then
-      install-homebrew-cask "${cask}"
+  for package in "${DNF_PACKAGES_TO_INSTALL[@]}"; do
+    if [ -n "${package}" ]; then
+      install-dnf-package "${package}"
     fi
   done
 }
 
-function update-homebrew {
+function update-dnf {
   #
   # Run homebrew updates
   #
@@ -745,24 +646,18 @@ function update-homebrew {
   fi
 
   set -x
-  brew upgrade
+  sudo dnf update -y
   set +x
 }
 
-function remove-homebrew {
+function remove-dnf {
   #
-  # Remove homebrew packages
+  # Remove dnf packages
   #
 
-  for formula in "${HOMEBREW_FORMULAS_TO_REMOVE[@]}"; do
-    if [ -n "${formula}" ]; then
-      remove-homebrew-formula "${formula}"
-    fi
-  done
-
-  for cask in "${HOMEBREW_CASKS_TO_REMOVE[@]}"; do
-    if [ -n "${cask}" ]; then
-      remove-homebrew-cask "${cask}"
+  for package in "${DNF_PACKAGES_TO_REMOVE[@]}"; do
+    if [ -n "${package}" ]; then
+      remove-dnf-package "${package}"
     fi
   done
 }
@@ -836,7 +731,7 @@ function log-dnf-plan {
 
 
 #
-# include: ./workflow/macos.sh
+# include: ./workflow/fedora.sh
 #
 
 
@@ -844,24 +739,25 @@ function log-dnf-plan {
 function run-workflow {
   init-state
   download-missing-packages
-  init-homebrew-state
+  init-dnf-state
 
   log-plan
-  log-homebrew-plan
+  log-dnf-plan
 
   run-lifecycle remove
-  remove-homebrew
+  remove-dnf
 
-  update-macos
-  update-macos-software
-  update-homebrew
+  update-fedora
+  update-dnf
   run-lifecycle update
 
-  install-homebrew
+  install-dnf
   run-lifecycle install
 
   save-state
 }
+
+main "$@"
 
 
 
