@@ -3,9 +3,9 @@
 DNF_PACKAGES_TO_INSTALL=()
 DNF_PACKAGES_TO_REMOVE=()
 
-function init-homebrew-state {
+function init-dnf-state {
   #
-  # Initialize homebrew state
+  # Initialize dnf state
   #
 
   for package in "${TO_INSTALL[@]}"; do
@@ -46,7 +46,7 @@ function init-dnf-package-state {
       ;;
   esac
 
-  yml_path="./${FATLINE_PACKAGE_DIR:?}/${package}/package.yml"
+  yml_path="./packages/${package}/package.yml"
   src=''
   packages="$(yq -r '.packages[]' "${yml_path}")"
 

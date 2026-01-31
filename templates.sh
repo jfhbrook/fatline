@@ -12,7 +12,7 @@ function template-package {
   cookiecutter \
     --no-input \
     -o packages "${FATLINE_TEMPLATE_SOURCE:?}" \
-    --directory "./${FATLINE_PACKAGE_DIR:?}/${template}" \
+    --directory "./${FATLINE_TEMPLATE_DIR:?}/${template}" \
     "package_name=${name}"
 }
 
@@ -35,7 +35,7 @@ function new-package {
 
 function download-missing-packages {
   for package in "${TO_INSTALL[@]}"; do
-    if [ ! -d "./${FATLINE_PACKAGE_DIR:-}/${package}" ]; then
+    if [ ! -d "./packages/${package}" ]; then
       download-package "${package}"
     fi
   done

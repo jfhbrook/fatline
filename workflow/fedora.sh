@@ -11,7 +11,7 @@ function run-workflow {
   run-lifecycle remove
   remove-dnf
 
-  update-fedora
+  # update-fedora
   update-dnf
   run-lifecycle update
 
@@ -20,5 +20,3 @@ function run-workflow {
 
   save-state
 }
-
-main "$@"

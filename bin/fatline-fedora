@@ -64,7 +64,7 @@ function die {
 
 
 
-FATLINE_PACKAGE_DIR=packages/fedora
+FATLINE_TEMPLATE_DIR=packages/fedora
 
 
 #
@@ -85,7 +85,7 @@ function template-package {
   cookiecutter \
     --no-input \
     -o packages "${FATLINE_TEMPLATE_SOURCE:?}" \
-    --directory "./${FATLINE_PACKAGE_DIR:?}/${template}" \
+    --directory "./${FATLINE_TEMPLATE_DIR:?}/${template}" \
     "package_name=${name}"
 }
 
@@ -108,7 +108,7 @@ function new-package {
 
 function download-missing-packages {
   for package in "${TO_INSTALL[@]}"; do
-    if [ ! -d "./${FATLINE_PACKAGE_DIR:-}/${package}" ]; then
+    if [ ! -d "./packages/${package}" ]; then
       download-package "${package}"
     fi
   done
@@ -449,7 +449,7 @@ function package-lifecycle {
 
   recipe="${1}"
   package="${2}"
-  justfile_path="./${FATLINE_PACKAGE_DIR:?}/${package}/justfile"
+  justfile_path="./packages/${package}/justfile"
 
   if [ ! -f "${justfile_path}" ]; then
     return
@@ -500,11 +500,11 @@ function run-lifecycle {
 
 
 
-function update-fedora {
+# function update-fedora {
   #
   # Run non-dnf Fedora updates
   #
-}
+# }
 
 
 #
@@ -516,9 +516,9 @@ function update-fedora {
 DNF_PACKAGES_TO_INSTALL=()
 DNF_PACKAGES_TO_REMOVE=()
 
-function init-homebrew-state {
+function init-dnf-state {
   #
-  # Initialize homebrew state
+  # Initialize dnf state
   #
 
   for package in "${TO_INSTALL[@]}"; do
@@ -559,7 +559,7 @@ function init-dnf-package-state {
       ;;
   esac
 
-  yml_path="./${FATLINE_PACKAGE_DIR:?}/${package}/package.yml"
+  yml_path="./packages/${package}/package.yml"
   src=''
   packages="$(yq -r '.packages[]' "${yml_path}")"
 
@@ -726,7 +726,23 @@ function log-homebrew-plan {
 }
 
 function log-dnf-plan {
-  log-warn 'TODO: log dnf plan'
+  local packages_to_install
+  local packages_to_remove
+
+  packages_to_install="${DNF_PACKAGES_TO_INSTALL}"
+  packages_to_remove="${DNF_PACKAGES_TO_REMOVE}"
+
+  if [ -n "${packages_to_install}" ]; then
+    log-debug "installing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to install'
+  fi
+
+  if [ -n "${packages_to_remove}" ]; then
+    log-debug "removing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to remove'
+  fi
 }
 
 
@@ -747,7 +763,7 @@ function run-workflow {
   run-lifecycle remove
   remove-dnf
 
-  update-fedora
+  # update-fedora
   update-dnf
   run-lifecycle update
 
@@ -756,8 +772,6 @@ function run-workflow {
 
   save-state
 }
-
-main "$@"
 
 
 

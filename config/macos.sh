@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-FATLINE_PACKAGE_DIR=packages/macos
+FATLINE_TEMPLATE_DIR=packages/macos
