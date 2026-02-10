@@ -11,8 +11,8 @@ function template-package {
 
   cookiecutter \
     --no-input \
-    -o packages "${FATLINE_TEMPLATE_SOURCE}" \
-    --directory "./packages/${template}" \
+    -o packages "${FATLINE_TEMPLATE_SOURCE:?}" \
+    --directory "./${FATLINE_TEMPLATE_DIR:?}/${template}" \
     "package_name=${name}"
 }
 

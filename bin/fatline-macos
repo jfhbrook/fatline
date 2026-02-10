@@ -1,0 +1,914 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+
+#
+# include: ./logging.sh
+#
+
+
+
+COLOR_RED='\e[0;31m'
+COLOR_YELLOW='\e[0;33m'
+COLOR_GREEN='\e[0;32m'
+COLOR_MAGENTA='\e[0;35m'
+COLOR_RESET='\e[0m'
+
+FATLINE_LOG_LEVEL="${FATLINE_LOG_LEVEL:-INFO}"
+DEBUG="${DEBUG:-}"
+
+function is-debug {
+  [[ "${FATLINE_LOG_LEVEL}" == 'DEBUG' ]] || [ -n "${DEBUG}" ]
+}
+
+function is-info {
+  [[ "${FATLINE_LOG_LEVEL}" == 'INFO' ]] || is-debug
+}
+
+function is-warn {
+  [[ "${FATLINE_LOG_LEVEL}" == 'WARN' ]] || is-info
+}
+
+function log-debug {
+  if is-debug; then
+    echo -e "${COLOR_MAGENTA}DEBUG${COLOR_RESET}:" "$@" 1>&2
+  fi
+}
+
+function log-info {
+  if is-info; then
+    echo -e "${COLOR_GREEN}INFO${COLOR_RESET}:" "$@" 1>&2
+  fi
+}
+
+function log-warn {
+  if is-warn; then
+    echo -e "${COLOR_YELLOW}WARN${COLOR_RESET}:" "$@" 1>&2
+  fi
+}
+
+function log-error {
+  echo -e "${COLOR_RED}ERROR${COLOR_RESET}:" "$@" 1>&2
+}
+
+function die {
+  log-error "$@"
+  exit 1
+}
+
+
+#
+# include: ./config/macos.sh
+#
+
+
+
+FATLINE_TEMPLATE_DIR=packages/macos
+
+
+#
+# include: ./templates.sh
+#
+
+
+
+FATLINE_TEMPLATE_SOURCE="${FATLINE_TEMPLATE_SOURCE:-gh:jfhbrook/fatline}"
+
+function template-package {
+  local template
+  local name
+
+  template="${1:?}"
+  name="${2:?}"
+
+  cookiecutter \
+    --no-input \
+    -o packages "${FATLINE_TEMPLATE_SOURCE:?}" \
+    --directory "./${FATLINE_TEMPLATE_DIR:?}/${template}" \
+    "package_name=${name}"
+}
+
+function download-package {
+  local name
+
+  name="${1:-}"
+
+  log-info "Downloading package ${name}..."
+  template-package "${name}" "${name}"
+}
+
+function new-package {
+  local name
+
+  name="${1:-}"
+
+  template-package _new "${name}"
+}
+
+function download-missing-packages {
+  for package in "${TO_INSTALL[@]}"; do
+    if [ ! -d "./packages/${package}" ]; then
+      download-package "${package}"
+    fi
+  done
+}
+
+
+#
+# include: ./argv.sh
+#
+
+
+
+COMMAND="${COMMAND:-}"
+PACKAGE="${PACKAGE:-}"
+FORCE=''
+
+function parse-argv {
+  #
+  # Parse CLI arguments
+  #
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --force)
+        # shellcheck disable=SC2034
+        FORCE=1
+        shift
+        ;;
+      *)
+        if [ -z "${COMMAND}" ]; then
+          COMMAND="${1}"
+        elif [ -z "${PACKAGE}" ]; then
+          PACKAGE="${1}"
+        else
+          die "Unknown argument ${1}"
+        fi
+        shift
+        ;;
+    esac
+  done
+}
+
+
+#
+# include: ./state.sh
+#
+
+
+
+COMMAND="${COMMAND:-}"
+PACKAGE="${PACKAGE:-}"
+FORCE=''
+
+DESIRED=()
+TO_INSTALL=()
+TO_UPDATE=()
+TO_REMOVE=()
+
+function ensure-manifest {
+  #
+  # Ensure manifest exists
+  #
+
+  if [ ! -f fatline.yml ]; then
+    echo 'packages: []' > fatline.yml
+  fi
+}
+
+function ensure-installed-txt {
+  #
+  # Ensure state exists
+  #
+
+  if [ ! -f .installed.txt ]; then
+    touch .installed.txt
+  fi
+}
+
+function is-installed {
+  #
+  # Check if a package is marked as installed
+  #
+
+  grep -q "${1}" .installed.txt
+}
+
+function load-package-desired-env {
+  if [[ "${COMMAND}" != remove ]]; then
+    DESIRED=( "${PACKAGE}" )
+  fi
+}
+
+function print-desired {
+  yq -r '.packages[]' fatline.yml
+}
+
+function load-desired-env {
+  #
+  # Load desired packages into the environment
+  #
+
+  if [ -n "${PACKAGE}" ]; then
+    load-package-desired-env
+    return
+  fi
+
+  eval "DESIRED=(
+    $(print-desired | sed 's/^/  /')
+  )"
+}
+
+function write-desired-txt {
+  #
+  # Write the desired packages file
+  #
+
+  printf "%s\n" "${DESIRED[@]}" > .desired.txt
+}
+
+function is-desired {
+  #
+  # Check if a package is marked as desired
+  #
+
+  grep -q "${1}" .desired.txt
+}
+
+function cleanup-desired-txt {
+  #
+  # Clean up the desired packages file
+  #
+
+  rm -f .desired.txt
+}
+
+function load-package-to-install-env {
+  #
+  # Load an individual package to TO_INSTALL
+  #
+
+  if [[ "${COMMAND}" == install ]]; then
+    if [ -z "${FORCE}" ] && is-installed "${PACKAGE}"; then
+      log-error "${PACKAGE} is already installed"
+      cleanup-desired-txt
+      exit 1
+    fi
+    TO_INSTALL=( "${PACKAGE}" )
+  else
+    TO_INSTALL=()
+  fi
+}
+
+function load-to-install-env {
+  #
+  # Load packages to TO_INSTALL
+  #
+
+  if [ -n "${PACKAGE}" ]; then
+    load-package-to-install-env
+  else
+    # shellcheck disable=SC2034
+    mapfile -t TO_INSTALL < <(comm -23 .desired.txt .installed.txt)
+  fi
+}
+
+function load-package-to-update-env {
+  #
+  # Load an individual package to TO_UPDATE
+  #
+
+  if [[ "${COMMAND}" == update ]]; then
+    [ -z "${FORCE}" ] || echo 'forced'
+    if [ -z "${FORCE}" ] && ! is-installed "${PACKAGE}"; then
+      log-error "${PACKAGE} is not installed"
+      cleanup-desired-txt
+      exit 1
+    fi
+    TO_UPDATE=( "${PACKAGE}" )
+  else
+    TO_UPDATE=()
+  fi
+}
+
+function load-to-update-env {
+  #
+  # Load packages to TO_UPDATE
+  #
+
+  if [ -n "${PACKAGE}" ]; then
+    load-package-to-update-env
+  else
+    # shellcheck disable=SC2034
+    mapfile -t TO_UPDATE < <(comm -12 .desired.txt .installed.txt)
+  fi
+}
+
+
+function load-package-to-remove-env {
+  #
+  # Load an individual package to TO_REMOVE
+  #
+
+  if [[ "${COMMAND}" == remove ]]; then
+    if [ -z "${FORCE}" ] && ! is-installed "${PACKAGE}"; then
+      log-error "${PACKAGE} is already removed"
+      cleanup-desired-txt
+      exit 1
+    fi
+    TO_REMOVE=( "${PACKAGE}" )
+  else
+    TO_REMOVE=()
+  fi
+}
+
+function load-to-remove-env {
+  #
+  # Load packages to TO_REMOVE
+  #
+
+  if [ -n "${PACKAGE}" ]; then
+    load-package-to-remove-env
+  else
+    # shellcheck disable=SC2034
+    mapfile -t TO_REMOVE < <(comm -13 .desired.txt .installed.txt)
+  fi
+}
+
+function test-lifecycle {
+  #
+  # Check if a command lifecycle should be run
+  #
+
+  if [ -z "${COMMAND}" ]; then
+    return 0
+  elif [[ "${COMMAND}" == "${1}" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function init-state {
+  ensure-manifest
+  ensure-installed-txt
+
+  load-desired-env
+
+  write-desired-txt
+
+  load-to-install-env
+  load-to-update-env
+  load-to-remove-env
+  cleanup-desired-txt
+}
+
+function print-installed {
+  printf "%s\n" "${TO_INSTALL[@]}" | (grep -v '^$' || true)
+}
+
+function write-removed {
+  printf "%s\n" "${TO_REMOVE[@]}" | (grep -v '^$' || true) > .removed.txt
+}
+
+function cleanup-removed {
+  rm -f .removed.txt
+}
+
+function save-installed {
+  # Delete removed dependencies
+  comm -13 .removed.txt .installed.txt > .installed.stage.txt
+
+  # Add installed dependencies
+  print-installed >> .installed.stage.txt
+
+  # Write unique installed to file
+  sort -u > .installed.txt < .installed.stage.txt
+
+  # Clean up
+  rm -f .installed.stage.txt
+}
+
+function save-manifest {
+  # Start with existing manifest packages
+  print-desired > .manifest.stage.txt
+
+  # Add installed packages
+  print-installed >> .manifest.stage.txt
+
+  comm -13 .removed.txt .manifest.stage.txt \
+    | sort -u \
+    | jq -Rn 'inputs' \
+    > .manifest.stage.json
+
+  rm -f .manifest.stage.txt
+
+  yq '.' fatline.yml -o json \
+    | jq \
+      --slurpfile packages .manifest.stage.json \
+      '.packages = $packages' \
+    | yq -P . \
+    > fatline.new.yml
+
+  # Clean up staged manifest
+  rm -f .manifest.stage.json
+
+  # Promote new fatline file
+  mv fatline.new.yml fatline.yml
+}
+
+function save-state {
+  log-info 'Saving state...'
+  log-debug 'Writing .removed.txt...'
+  write-removed
+  log-debug 'Updating installed packages...'
+  save-installed
+  log-debug 'Saving fatline.yml...'
+  save-manifest
+  log-debug 'Cleaning up .removed.txt...'
+  cleanup-removed
+  log-info 'State saved.'
+}
+
+
+#
+# include: ./lifecycle.sh
+#
+
+
+
+function package-lifecycle {
+  #
+  # Run a package lifecycle action
+  #
+
+  local recipe
+  local package
+  local justfile_path
+
+  recipe="${1}"
+  package="${2}"
+  justfile_path="./packages/${package}/justfile"
+
+  if [ ! -f "${justfile_path}" ]; then
+    return
+  fi
+
+  if [[ "$(just -f "${justfile_path}" --dump --dump-format json | jq ".recipes.${recipe}")" == 'null' ]]; then
+    return
+  fi
+
+  set -x
+
+  just -f "${justfile_path}" "${recipe}"
+
+  set +x
+}
+
+function run-lifecycle {
+  #
+  # Run lifecycle hooks for all packages
+  #
+
+  case "${1}" in
+    install)
+      for package in "${TO_INSTALL[@]}"; do
+        package-lifecycle install "${package}"
+      done
+      ;;
+    update)
+      for package in "${TO_UPDATE[@]}"; do
+        package-lifecycle update "${package}"
+      done
+      ;;
+    remove)
+      for package in "${TO_REMOVE[@]}"; do
+        package-lifecycle remove "${package}"
+      done
+      ;;
+    *)
+      die "Unknown command: ${1}"
+      ;;
+  esac
+}
+
+
+#
+# include: ./system/macos.sh
+#
+
+
+
+function update-macos {
+  #
+  # Run MacOS OS updates
+  #
+
+  if ! test-lifecycle 'update'; then
+    return
+  fi
+
+  set -x
+  sudo softwareupdate -i -a
+  set +x
+}
+
+function update-macos-software {
+  #
+  # Run MacOS software updates
+  #
+
+  if ! test-lifecycle 'update'; then
+    return
+  fi
+
+  set -x
+  mas upgrade
+  set +x
+}
+
+
+#
+# include: ./homebrew.sh
+#
+
+
+
+HOMEBREW_FORMULAS_TO_INSTALL=()
+HOMEBREW_CASKS_TO_INSTALL=()
+HOMEBREW_FORMULAS_TO_REMOVE=()
+HOMEBREW_CASKS_TO_REMOVE=()
+
+function init-homebrew-state {
+  #
+  # Initialize homebrew state
+  #
+
+  for package in "${TO_INSTALL[@]}"; do
+    init-homebrew-package-state install "${package}"
+  done
+
+  for package in "${TO_REMOVE[@]}"; do
+    init-homebrew-package-state remove "${package}"
+  done
+
+  cleanup-homebrew-env
+}
+
+function init-homebrew-package-state {
+  #
+  # Init homebrew state for a command and package
+  #
+
+  local cmd
+  local package
+  local formulas_var
+  local casks_var
+  local yml_path
+  local src
+  local formulas
+  local casks
+
+  cmd="${1}"
+  package="${2}"
+
+  case "${cmd}" in
+    install)
+      formulas_var='HOMEBREW_FORMULAS_TO_INSTALL'
+      casks_var='HOMEBREW_CASKS_TO_INSTALL'
+      ;;
+    remove)
+      formulas_var='HOMEBREW_FORMULAS_TO_REMOVE'
+      casks_var='HOMEBREW_CASKS_TO_REMOVE'
+      ;;
+    *)
+      die "Command ${cmd} unsupported by homebrew"
+      ;;
+  esac
+
+  yml_path="./packages/${package}/package.yml"
+  src=''
+  formulas="$(yq -r '.formulas[]' "${yml_path}")"
+  casks="$(yq -r '.casks[]' "${yml_path}")"
+
+  if [ -n "${formulas}" ]; then
+    src="${formulas_var}+=(
+${formulas}
+)
+"
+  fi
+
+  if [ -n "${casks}" ]; then
+    src="${src}${casks_var}+=(
+${casks}
+)"
+  fi
+
+  eval "${src}"
+}
+
+function cleanup-homebrew-env {
+  #
+  # Sort and deduplicate homebrew formulas and casks
+  #
+
+  # TODO: These leave an empty element in each array - yuck
+
+  mapfile -t HOMEBREW_FORMULAS_TO_INSTALL < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_INSTALL[@]-}" | sort -u)
+  mapfile -t HOMEBREW_CASKS_TO_INSTALL < <(printf '%s\n' "${HOMEBREW_CASKS_TO_INSTALL[@]-}" | sort -u)
+  mapfile -t HOMEBREW_FORMULAS_TO_REMOVE < <(printf '%s\n' "${HOMEBREW_FORMULAS_TO_REMOVE[@]-}" | sort -u)
+  mapfile -t HOMEBREW_CASKS_TO_REMOVE < <(printf '%s\n' "${HOMEBREW_CASKS_TO_REMOVE[@]-}" | sort -u)
+}
+
+function foreach-homebrew-cask {
+  #
+  # Run a function for each homebrew cask
+  #
+
+  local callback
+  callback="${1}"
+
+  if [ -n "${HOMEBREW_CASKS:-}" ]; then
+    for cask in "${HOMEBREW_CASKS[@]}"; do
+      "${callback}" "${cask}"
+    done
+  fi
+}
+
+function install-homebrew-formula {
+  #
+  # Install a homebrew formula
+  #
+
+  local formula
+
+  formula="${1}"
+
+  if [ -z "${FORCE}" ]; then
+    set -x
+    brew install "${formula}"
+    set +x
+  else
+    set -x
+    brew list "${formula}" &>/dev/null || brew install "${formula}"
+    set +x
+  fi
+}
+
+function install-homebrew-cask {
+  #
+  # Install a homebrew cask
+  #
+
+  local cask
+
+  cask="${1}"
+
+  if [ -z "${FORCE}" ]; then
+    set -x
+    brew install --cask "${cask}"
+    set +x
+  else
+    set -x
+    brew list --cask "${cask}" &>/dev/null || brew install --cask "${cask}"
+    set +x
+  fi
+}
+
+function remove-homebrew-formula {
+  #
+  # Remove a homebrew formula
+  #
+
+  local formula
+
+  formula="${1}"
+
+  if [ -z "${FORCE}" ]; then
+    set -x
+    brew remove "${formula}"
+    set +x
+  else
+    set -x
+    brew list "${formula}" &>/dev/null && brew remove "${formula}"
+    set +x
+  fi
+}
+
+function remove-homebrew-cask {
+  #
+  # Remove a homebrew cask
+  #
+
+  local cask
+
+  cask="${1}"
+
+  if [ -z "${FORCE}" ]; then
+    set -x
+    brew remove --cask "${cask}"
+    set +x
+  else
+    set -x
+    brew list --cask "${cask}" &>/dev/null && brew remove --cask "${cask}"
+    set +x
+  fi
+}
+
+
+function install-homebrew {
+  #
+  # Install homebrew packages
+  #
+
+  for formula in "${HOMEBREW_FORMULAS_TO_INSTALL[@]}"; do
+    if [ -n "${formula}" ]; then
+      install-homebrew-formula "${formula}"
+    fi
+  done
+
+  for cask in "${HOMEBREW_CASKS_TO_INSTALL[@]}"; do
+    if [ -n "${cask}" ]; then
+      install-homebrew-cask "${cask}"
+    fi
+  done
+}
+
+function update-homebrew {
+  #
+  # Run homebrew updates
+  #
+
+  if ! test-lifecycle 'update'; then
+    return
+  fi
+
+  set -x
+  brew upgrade
+  set +x
+}
+
+function remove-homebrew {
+  #
+  # Remove homebrew packages
+  #
+
+  for formula in "${HOMEBREW_FORMULAS_TO_REMOVE[@]}"; do
+    if [ -n "${formula}" ]; then
+      remove-homebrew-formula "${formula}"
+    fi
+  done
+
+  for cask in "${HOMEBREW_CASKS_TO_REMOVE[@]}"; do
+    if [ -n "${cask}" ]; then
+      remove-homebrew-cask "${cask}"
+    fi
+  done
+}
+
+
+#
+# include: ./plan.sh
+#
+
+
+
+function log-plan {
+  if [[ ${#TO_INSTALL[@]} -gt 0 ]]; then
+    log-debug "Install: ${TO_INSTALL[*]}"
+  else
+    log-debug 'No packages to install'
+  fi
+
+  if [[ ${#TO_UPDATE[@]} -gt 0 ]]; then
+    log-debug "Update: ${TO_UPDATE[*]}"
+  else
+    log-debug 'No packages to update'
+  fi
+
+  if [[ ${#TO_REMOVE[@]} -gt 0 ]]; then
+    log-debug "Remove: ${TO_REMOVE[*]}"
+  else
+    log-debug 'No packages to remove'
+  fi
+}
+
+function log-homebrew-plan {
+  local formulas_to_install
+  local formulas_to_remove
+  local casks_to_install
+  local casks_to_remove
+
+  formulas_to_install="${HOMEBREW_FORMULAS_TO_INSTALL}"
+  casks_to_install="${HOMEBREW_CASKS_TO_INSTALL}"
+  formulas_to_remove="${HOMEBREW_FORMULAS_TO_REMOVE}"
+  casks_to_remove="${HOMEBREW_CASKS_TO_REMOVE}"
+
+  if [ -n "${formulas_to_install}" ]; then
+    log-debug "installing formulas: ${formulas_to_install}"
+  else
+    log-debug 'No formulas to install'
+  fi
+
+  if [ -n "${casks_to_install}" ]; then
+    log-debug "installing casks: ${casks_to_install}"
+  else
+    log-debug 'No casks to install'
+  fi
+
+  if [ -n "${formulas_to_remove}" ]; then
+    log-debug "removing formulas: ${formulas_to_install}"
+  else
+    log-debug 'No formulas to remove'
+  fi
+
+  if [ -n "${casks_to_remove}" ]; then
+    log-debug "removing casks: ${casks_to_install}"
+  else
+    log-debug 'No casks to remove'
+  fi
+}
+
+function log-dnf-plan {
+  local packages_to_install
+  local packages_to_remove
+
+  packages_to_install="${DNF_PACKAGES_TO_INSTALL}"
+  packages_to_remove="${DNF_PACKAGES_TO_REMOVE}"
+
+  if [ -n "${packages_to_install}" ]; then
+    log-debug "installing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to install'
+  fi
+
+  if [ -n "${packages_to_remove}" ]; then
+    log-debug "removing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to remove'
+  fi
+}
+
+
+#
+# include: ./workflow/macos.sh
+#
+
+
+
+function run-workflow {
+  init-state
+  download-missing-packages
+  init-homebrew-state
+
+  log-plan
+  log-homebrew-plan
+
+  run-lifecycle remove
+  remove-homebrew
+
+  update-macos
+  update-macos-software
+  update-homebrew
+  run-lifecycle update
+
+  install-homebrew
+  run-lifecycle install
+
+  save-state
+}
+
+
+
+#
+# include: ./main.sh
+#
+
+
+
+function create-new {
+  log-info "Creating new package ${PACKAGE}..."
+  new-package "${PACKAGE}"
+}
+
+function main {
+  log-info 'Yes this is fatline'
+  log-debug 'It worked if it ends with ok'
+
+  parse-argv "$@"
+
+  case "${COMMAND}" in
+    new)
+      create-new
+      ;;
+    *)
+      run-workflow
+      ;;
+  esac
+
+  log-info 'ok'
+}
+
+main "$@"
+

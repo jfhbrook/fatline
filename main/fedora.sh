@@ -5,6 +5,27 @@ function create-new {
   new-package "${PACKAGE}"
 }
 
+function run-workflow {
+  init-state
+  download-missing-packages
+  init-dnf-state
+
+  log-plan
+  log-dnf-plan
+
+  run-lifecycle remove
+  remove-dnf
+
+  update-fedora
+  update-dnf
+  run-lifecycle update
+
+  install-dnf
+  run-lifecycle install
+
+  save-state
+}
+
 function main {
   log-info 'Yes this is fatline'
   log-debug 'It worked if it ends with ok'

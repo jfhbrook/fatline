@@ -55,3 +55,23 @@ function log-homebrew-plan {
     log-debug 'No casks to remove'
   fi
 }
+
+function log-dnf-plan {
+  local packages_to_install
+  local packages_to_remove
+
+  packages_to_install="${DNF_PACKAGES_TO_INSTALL}"
+  packages_to_remove="${DNF_PACKAGES_TO_REMOVE}"
+
+  if [ -n "${packages_to_install}" ]; then
+    log-debug "installing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to install'
+  fi
+
+  if [ -n "${packages_to_remove}" ]; then
+    log-debug "removing packages: ${packages_to_install}"
+  else
+    log-debug 'No packages to remove'
+  fi
+}
