@@ -239,6 +239,9 @@ function save-manifest {
   # Add installed packages
   print-installed >> .manifest.stage.txt
 
+  # Sort so comm doesn't have a meltdown
+  sort -o .manifest.stage.txt .manifest.stage.txt
+
   comm -13 .removed.txt .manifest.stage.txt \
     | sort -u \
     | jq -Rn 'inputs' \
